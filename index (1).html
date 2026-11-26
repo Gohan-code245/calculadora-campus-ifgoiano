@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Notas | IF Goiano</title>
+<style>
+:root { --verde:#176b38; --vermelho:#b4232c; --fundo:#f1f6f2; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:Arial,sans-serif; background:var(--fundo); color:#23352a; line-height:1.5; }
+header { background:var(--verde); color:white; text-align:center; padding:32px 16px; border-top:6px solid var(--vermelho); }
+h1 { margin:0; font-size:clamp(1.5rem,5vw,2.2rem); }
+header p { margin:8px 0 0; }
+main { max-width:640px; margin:24px auto; padding:0 16px; }
+section { background:white; padding:24px; border-radius:16px; box-shadow:0 4px 20px #173b2010; margin-bottom:16px; }
+h2 { font-size:1.2rem; margin:0 0 16px; }
+.campos,.botoes { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+label { display:block; font-weight:bold; }
+input { display:block; width:100%; margin-top:6px; padding:12px; border:1px solid #aab9ae; border-radius:8px; font-size:1rem; }
+input:focus,button:focus-visible { outline:3px solid #70b88a; outline-offset:2px; }
+.botoes { margin-top:22px; }
+button { border:0; border-radius:8px; padding:14px; font-size:1rem; font-weight:bold; cursor:pointer; }
+.calcular { background:var(--verde); color:white; }
+.limpar { background:white; color:var(--vermelho); border:1px solid var(--vermelho); }
+button:hover { filter:brightness(.94); }
+#resultado { text-align:center; border-left:5px solid var(--verde); }
+#resultado.alerta { border-color:#a66a00; }
+#resultado.reprovado { border-color:var(--vermelho); }
+#media { font-size:2.6rem; font-weight:bold; color:var(--verde); margin:0; }
+#situacao { font-weight:bold; font-size:1.2rem; }
+.alerta #situacao { color:#895700; }
+.reprovado #situacao,#erro { color:var(--vermelho); }
+.aprovado #situacao { color:var(--verde); }
+#notaFinal { background:var(--fundo); border-radius:8px; padding:12px; }
+.regras { font-size:.88rem; color:#45574b; }
+footer { text-align:center; padding:8px 16px 24px; font-size:.85rem; color:#45574b; }
+[hidden] { display:none !important; }
+@media(max-width:420px) { section { padding:18px; } .campos,.botoes { grid-template-columns:1fr; gap:12px; } }
+
+.campos { grid-template-columns:repeat(3,minmax(0,1fr)); }
+#tema { margin-top:16px; background:#ffffff; color:#176b38; border:1px solid #ffffff; padding:9px 16px; }
+body.escuro { color-scheme:dark; --fundo:#141b17; --verde:#80d69a; --vermelho:#ff858c; background:var(--fundo); color:#e6eee8; }
+body.escuro header { background:#124c2a; border-top-color:#b4232c; }
+body.escuro section { background:#222e26; box-shadow:none; }
+body.escuro input { background:#151e18; color:#f1f6f2; border-color:#62766a; }
+body.escuro .calcular { background:#80d69a; color:#102a19; }
+body.escuro .limpar { background:transparent; }
+body.escuro .regras,body.escuro footer { color:#bdcec2; }
+body.escuro .alerta #situacao { color:#ffd080; }
+body.escuro #tema { background:#222e26; color:#fff; }
+@media(max-width:540px) { .campos { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+<h1>Calculadora de Notas</h1>
+<p>IF Goiano · Acompanhe seu desempenho acadêmico</p>
+<button id="tema" type="button" aria-pressed="false">🌙 Modo escuro</button>
+</header>
+<main>
+<section>
+<h2>Informe suas notas</h2>
+<p>Preencha os três trimestres com notas de 0 a 10.</p>
+<form id="formNotas" novalidate>
+<div class="campos">
+<label for="b1">1º trimestre<input id="b1" type="number" min="0" max="10" step="0.01" inputmode="decimal" placeholder="Ex.: 7,5" required></label>
+<label for="b2">2º trimestre<input id="b2" type="number" min="0" max="10" step="0.01" inputmode="decimal" placeholder="Ex.: 6,0" required></label>
+<label for="b3">3º trimestre<input id="b3" type="number" min="0" max="10" step="0.01" inputmode="decimal" placeholder="Ex.: 8,0" required></label>
+</div>
+<p id="erro" role="alert" hidden></p>
+<div class="botoes"><button class="calcular" type="submit">Calcular média</button><button class="limpar" type="reset">Limpar campos</button></div>
+</form>
+</section>
+<section id="resultado" aria-live="polite" hidden>
+<h2>Seu resultado</h2>
+<div>Média anual</div><p id="media"></p>
+<p id="situacao"></p><p id="notaFinal" hidden></p>
+</section>
+<section class="regras">
+<h2>Critérios de cálculo</h2>
+<p><strong>Simulação não oficial:</strong> confirme as regras com a coordenação do seu curso.</p>
+<p id="criterios"></p>
+<p>A frequência escolar e outros critérios institucionais não são avaliados por esta ferramenta.</p>
+</section>
+</main>
+<footer>Projeto educacional · Técnico em Desenvolvimento de Sistemas<br>Instituto Federal Goiano — ferramenta não oficial</footer>
+<script>
+ 'use strict';
+const tema = document.getElementById('tema');
+function aplicarTema(escuro) {
+  document.body.classList.toggle('escuro', escuro);
+  tema.setAttribute('aria-pressed', String(escuro));
+  tema.textContent = escuro ? '☀️ Modo claro' : '🌙 Modo escuro';
+}
+let preferencia;
+try { preferencia = localStorage.getItem('tema-if'); } catch(e) {}
+aplicarTema(preferencia === 'escuro' || (!preferencia && matchMedia('(prefers-color-scheme: dark)').matches));
+tema.addEventListener('click', () => {
+  const escuro = !document.body.classList.contains('escuro');
+  aplicarTema(escuro);
+  try { localStorage.setItem('tema-if', escuro ? 'escuro' : 'claro'); } catch(e) {}
+});
+// Altere estes parâmetros após consultar o regulamento do curso.
+const MEDIA_APROVACAO = 6;
+const MEDIA_MINIMA_FINAL = 3;
+const MEDIA_APOS_FINAL = 6;
+const NOTA_MAXIMA = 10;
+const form = document.getElementById('formNotas');
+const campos = [...form.querySelectorAll('input')];
+const resultado = document.getElementById('resultado');
+const erro = document.getElementById('erro');
+const notaFinal = document.getElementById('notaFinal');
+const formatar = n => n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:3});
+document.getElementById('criterios').textContent = `Média anual: média aritmética dos três trimestres. Aprovação direta: ${MEDIA_APROVACAO}. Acesso à final: média de ${MEDIA_MINIMA_FINAL} até abaixo de ${MEDIA_APROVACAO}. Média após a final: (média anual + nota da final) ÷ 2, devendo atingir ${MEDIA_APOS_FINAL}.`;
+form.addEventListener('submit', event => {
+  event.preventDefault();
+  erro.hidden = true;
+  resultado.hidden = true;
+  // Verifica campos vazios, limites e precisão de duas casas decimais.
+  const invalido = campos.find(c => c.value.trim() === '' || !c.validity.valid || !Number.isFinite(c.valueAsNumber));
+  if (invalido) {
+    erro.textContent = 'Informe uma nota válida de 0 a 10, com até duas casas decimais, em todos os trimestres.';
+    erro.hidden = false;
+    invalido.focus();
+    return;
+  }
+  // Trabalha com centésimos inteiros para evitar erros de ponto flutuante.
+  const soma = campos.reduce((total,c) => total + Math.round(c.valueAsNumber * 100),0);
+  const media = soma / 300;
+  document.getElementById('media').textContent = formatar(media);
+  const situacao = document.getElementById('situacao');
+  notaFinal.hidden = true;
+  if (media >= MEDIA_APROVACAO) {
+    resultado.className = 'aprovado';
+    situacao.textContent = 'Aprovado por média!';
+  } else if (media < MEDIA_MINIMA_FINAL) {
+    resultado.className = 'reprovado';
+    situacao.textContent = 'Abaixo da média mínima para a prova final.';
+  } else {
+    // Isola a nota da final na fórmula da média e arredonda para cima.
+    const necessaria = Math.max(0, Math.ceil((MEDIA_APOS_FINAL * 600 - soma) / 3) / 100);
+    if (necessaria > NOTA_MAXIMA) {
+      resultado.className = 'reprovado';
+      situacao.textContent = 'Não é possível alcançar a média exigida.';
+    } else {
+      resultado.className = 'alerta';
+      situacao.textContent = 'Necessita de prova final';
+    }
+    notaFinal.textContent = `Nota necessária na prova final: ${formatar(necessaria)}`;
+    notaFinal.hidden = false;
+  }
+  resultado.hidden = false;
+});
+form.addEventListener('input', () => { resultado.hidden = true; erro.hidden = true; });
+form.addEventListener('reset', () => { resultado.hidden = true; erro.hidden = true; campos[0].focus(); });
+</script>
+</body>
+</html>
